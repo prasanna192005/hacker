@@ -1,0 +1,60 @@
+services:
+  bank-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    depends_on:
+      - loki
+      - prometheus
+      - tempo
+    environment:
+      - PORT=3000
+    networks:
+      - observability
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - observability
+
+  loki:
+    image: grafana/loki:3.4.3
+    ports:
+      - '3100:3100'
+    volumes:
+      - ./config/loki-config.yml:/etc/loki/loki-config.yml
+    command: -config.file=/etc/loki/loki-config.yml -config.expand-env=true
+    networks:
+      - observability
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    ports:
+      - '4318:4318'
+      - '9095:9095'
+    volumes:
+      - ./config/tempo.yaml:/etc/tempo.yaml
+    command: ["-config.file=/etc/tempo.yaml"]
+    network_mode: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - '3001:3000'
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    networks:
+      - observability
+
+networks:
+  observability:
+    driver: bridge
